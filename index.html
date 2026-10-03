@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="mk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0E1420">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Crypto Signals">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
+<title>Крипто сигнали за тргување</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0E1420; --panel:#141B2B; --line:#232D40;
+    --text:#EAF0F7; --dim:#8492A6;
+    --buy:#3ECF8E; --sell:#FF6B5F; --neutral:#E8B75E;
+    box-sizing:border-box;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  html{scroll-padding-top:env(safe-area-inset-top,0px); height:100%;}
+  *{box-sizing:border-box;}
+  body{
+    height:100%; margin:0; background:var(--bg); color:var(--text);
+    font-family:'Space Grotesk',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:720px; margin:0 auto; padding:20px 16px 40px;}
+  h1{font-size:1.4rem; margin:0 0 4px; letter-spacing:-0.01em;}
+  .sub{color:var(--dim); font-size:0.9rem; margin:0 0 20px;}
+
+  .signal-card{
+    background:var(--panel); border:1px solid var(--line); border-radius:18px;
+    padding:22px; text-align:center; margin-bottom:16px;
+  }
+  .signal-word{font-size:2.6rem; font-weight:700; margin:0; line-height:1;}
+  .signal-word.buy{color:var(--buy);}
+  .signal-word.sell{color:var(--sell);}
+  .signal-word.hold{color:var(--neutral);}
+  .signal-reason{color:var(--dim); font-size:0.95rem; margin-top:8px;}
+  @keyframes alertPulse{0%{box-shadow:0 0 0 0 rgba(62,207,142,0.55);} 70%{box-shadow:0 0 0 18px rgba(62,207,142,0);} 100%{box-shadow:0 0 0 0 rgba(62,207,142,0);}}
+  @keyframes alertPulseSell{0%{box-shadow:0 0 0 0 rgba(255,107,95,0.55);} 70%{box-shadow:0 0 0 18px rgba(255,107,95,0);} 100%{box-shadow:0 0 0 0 rgba(255,107,95,0);}}
+  .signal-card.pulse-buy{animation:alertPulse 0.9s ease-out 2;}
+  .signal-card.pulse-sell{animation:alertPulseSell 0.9s ease-out 2;}
+  @keyframes alertPulseHold{0%{box-shadow:0 0 0 0 rgba(232,183,94,0.55);} 70%{box-shadow:0 0 0 18px rgba(232,183,94,0);} 100%{box-shadow:0 0 0 0 rgba(232,183,94,0);}}
+  .signal-card.pulse-hold{animation:alertPulseHold 0.9s ease-out 2;}
+  .stat-row{display:flex; justify-content:center; gap:28px; margin-top:16px; flex-wrap:wrap;}
+  .stat{font-family:'JetBrains Mono',monospace;}
+  .stat .v{font-size:1.15rem; font-weight:600;}
+  .stat .v.buy{color:var(--buy);} .stat .v.sell{color:var(--sell);}
+  .stat .l{font-size:0.72rem; color:var(--dim); display:block;}
+
+  .panel{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:14px;}
+  .panel h2{font-size:0.85rem; color:var(--dim); font-weight:600; margin:0 0 10px;}
+  canvas{max-width:100%;}
+
+  .mom-row{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:14px;}
+  @keyframes momBlinkOrange{0%,100%{box-shadow:0 0 0 0 rgba(255,152,0,0);} 50%{box-shadow:0 0 0 6px rgba(255,152,0,0.6);}}
+  .mom-row.blink-orange{animation:momBlinkOrange 0.5s ease-in-out 4;}
+  .caution-banner{margin-top:10px; color:#FF9800; font-weight:700; font-size:0.85rem; background:rgba(255,152,0,0.12); border:1px solid rgba(255,152,0,0.45); border-radius:10px; padding:8px 10px;}
+  @keyframes cautionBlink{0%,100%{opacity:1;} 50%{opacity:0.3;}}
+  .caution-banner.blink{animation:cautionBlink 0.5s ease-in-out 6;}
+  .mom-card{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px; text-align:center;}
+  .mom-card .l{font-size:0.75rem; color:var(--dim);}
+  .mom-card .p{font-size:1.4rem; font-weight:700; margin:6px 0; font-family:'JetBrains Mono',monospace;}
+  .mom-card .p.buy{color:var(--buy);} .mom-card .p.sell{color:var(--sell);}
+  .badge{display:inline-block; font-size:0.7rem; padding:3px 8px; border-radius:20px; background:var(--line); color:var(--dim);}
+  .badge.spike{background:rgba(232,183,94,0.18); color:var(--neutral);}
+
+  table{width:100%; border-collapse:collapse; font-family:'JetBrains Mono',monospace; font-size:0.85rem;}
+  th{text-align:left; color:var(--dim); font-weight:600; font-size:0.72rem; padding:6px 4px; border-bottom:1px solid var(--line);}
+  td{padding:8px 4px; border-bottom:1px solid var(--line);}
+  td.sig{font-weight:700;}
+  td.sig.buy{color:var(--buy);} td.sig.sell{color:var(--sell);} td.sig.hold{color:var(--neutral);}
+
+  .controls{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;}
+  button{
+    font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:0.85rem;
+    background:var(--line); color:var(--text); border:none; border-radius:10px;
+    padding:10px 14px; cursor:pointer;
+  }
+  button.primary{background:var(--buy); color:#08150F;}
+  textarea{
+    width:100%; min-height:90px; background:#0A0F19; color:var(--text);
+    border:1px solid var(--line); border-radius:10px; padding:10px;
+    font-family:'JetBrains Mono',monospace; font-size:0.8rem; resize:vertical;
+    display:none;
+  }
+  textarea.show{display:block; margin-bottom:10px;}
+  .hint{color:var(--dim); font-size:0.75rem; margin:2px 0 14px;}
+  .disclaimer{color:var(--dim); font-size:0.72rem; text-align:center; margin-top:18px; line-height:1.5;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Крипто сигнали за тргување</h1>
+  <p class="sub">BTC/ETH — моментум, волумен и мулти-тајмфрејм сигнали</p>
+
+  <div class="controls">
+    <button class="primary" onclick="loadDemo()">Demo серија</button>
+    <button onclick="toggleCsv()">Вчитај CSV</button>
+    <button onclick="toggleAlarm()" id="alarmBtn">🔕 Аларм исклучен</button>
+    <span style="display:flex; align-items:center; gap:6px; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:6px 10px;">
+      <label for="priceOffset" style="font-size:0.78rem; color:var(--dim);">Прилагодување $</label>
+      <input type="number" id="priceOffset" value="0" step="0.01" style="width:70px; background:#0A0F19; color:var(--text); border:1px solid var(--line); border-radius:6px; padding:4px 6px; font-family:'JetBrains Mono',monospace;">
+      <button onclick="applyOffsetNow()" style="padding:4px 10px;">Примени</button>
+    </span>
+    <button onclick="toggleLive('BTCUSDT')" id="liveBtnBTC">🔴 Live BTC/USDT</button>
+    <button onclick="toggleLive('ETHUSDT')" id="liveBtnETH">🔴 Live ETH/USDT</button>
+    <button onclick="scan24h('BTCUSDT')">🕐 24ч BTC</button>
+    <button onclick="scan24h('ETHUSDT')">🕐 24ч ETH</button>
+    <button onclick="scanPrevWeek('BTCUSDT')">📅 Мин. седмица BTC</button>
+    <button onclick="scanPrevWeek('ETHUSDT')">📅 Мин. седмица ETH</button>
+  </div>
+  <p class="hint" id="liveStatus" style="display:none;"></p>
+  <textarea id="csvBox" placeholder="Датум,Цена,Волумен — по ред, секој ред = 1 минута&#10;2026-01-01 09:30,102.30,15400&#10;2026-01-01 09:31,102.55,18900&#10;..."></textarea>
+  <div class="controls" id="csvGo" style="display:none;">
+    <button class="primary" onclick="loadCsv()">Пресметај сигнали</button>
+  </div>
+  <p class="hint" id="csvHint" style="display:none;">Секој ред се третира како 1 минута по редослед (не се чита самата дата).</p>
+
+  <div class="signal-card">
+    <p class="signal-word hold" id="signalWord">&mdash;</p>
+    <p class="signal-reason" id="signalReason">Вчитај податоци за да се пресметаат сигналите.</p>
+    <p class="hint" id="signalBreakdown" style="margin-top:2px;"></p>
+    <p class="caution-banner" id="signalWarning" style="display:none;">⚠️ ЧЕКАЈ — силен моментум спротивен на сигналот</p>
+    <div class="stat-row">
+      <div class="stat"><span class="v" id="statPrice">&mdash;</span><span class="l">ЦЕНА (USD)</span></div>
+      <div class="stat"><span class="v" id="statRsi">&mdash;</span><span class="l">RSI(14)</span></div>
+      <div class="stat"><span class="v" id="statMacd">&mdash;</span><span class="l">MACD</span></div>
+    </div>
+  </div>
+
+  <div class="mom-row">
+    <div class="mom-card">
+      <span class="l">МОМЕНТУМ 1 МИН</span>
+      <p class="p" id="mom1">&mdash;</p>
+      <span class="badge" id="vol1">волумен &mdash;</span>
+    </div>
+    <div class="mom-card">
+      <span class="l">МОМЕНТУМ 5 МИН</span>
+      <p class="p" id="mom5">&mdash;</p>
+      <span class="badge" id="vol5">волумен &mdash;</span>
+    </div>
+    <div class="mom-card">
+      <span class="l">МОМЕНТУМ 15 МИН</span>
+      <p class="p" id="mom15">&mdash;</p>
+      <span class="badge" id="vol15">волумен &mdash;</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>ТАЈМ-ФРЕЈМ СИГНАЛИ</h2>
+    <table>
+      <thead><tr><th>Тајм-фрејм</th><th>RSI</th><th>Сигнал</th></tr></thead>
+      <tbody id="tfBody"></tbody>
+    </table>
+  </div>
+
+  <div class="panel">
+    <h2>ЗОНИ СО ГОЛЕМ ВОЛУМЕН → ПРОДОЛЖУВАЊЕ</h2>
+    <p class="hint" style="margin-top:-6px;">Анализа на 15-мин и 1-часовни свеќи (последни 2 недели, ⏱ 1ч). Зоната се брише само кога цела свеќа ќе ја пробие. За секој тајмфрејм (15мин и 1ч) секогаш има барем по една активна зона за купување и за продавање — се бара наназад (⏪ 15мин / ⏪ 1ч) додека не се најде.</p>
+    <table>
+      <thead><tr><th>Откриено</th><th>Опсег на цена</th><th>Насока</th><th>Волумен</th><th>Продолжување</th></tr></thead>
+      <tbody id="zoneBody"><tr><td colspan="5" style="color:var(--dim)">Нема детектирано зони.</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="panel">
+    <h2>ЦЕНА + SMA(20/50) + СИГНАЛИ</h2>
+    <canvas id="priceChart" height="220"></canvas>
+  </div>
+  <div class="panel">
+    <h2>RSI(14)</h2>
+    <canvas id="rsiChart" height="120"></canvas>
+  </div>
+
+  <p class="disclaimer">Едукативна алатка за технička анализа. Не е финансиски совет — тргувањето носи ризик.</p>
+</div>
+
+<script>
+let priceChart, rsiChart;
+let alarmEnabled = false;
+let lastSignalCls = null;
+let lastVolConfirmDir = null;
+let lastConflictWarning = false;
+let audioCtx = null;
+let zoneHistory = [];
+let barTimestamps = [];
+let barHighs = [], barLows = [];
+let lastPrices = [], lastVolumes = [];
+let tfLongData = { closes1h: [], closes4h: [], closes1d: [] };
+const avg = a => a.reduce((x,y)=>x+y,0)/a.length;
+function priceOffset(){ const v = parseFloat(document.getElementById('priceOffset').value); return isNaN(v) ? 0 : v; }
+function off(arr){ const o = priceOffset(); return o ? arr.map(x=>x+o) : arr; }
+function applyOffsetNow(){ if(liveSymbol) fetchReal(liveSymbol); else if(lastPrices.length) render(lastPrices, lastVolumes); }
+
+function toggleCsv(){
+  const show = document.getElementById('csvBox').classList.toggle('show');
+  document.getElementById('csvGo').style.display = show ? 'flex' : 'none';
+  document.getElementById('csvHint').style.display = show ? 'block' : 'none';
+}
+
+function loadDemo(){
+  let price = 100, prices = [], volumes = [];
+  for(let i=0;i<1500;i++){
+    const drift = Math.sin(i/40)*0.5 + Math.sin(i/9)*0.3;
+    price += drift + (Math.random()-0.5)*1.6;
+    price = Math.max(price, 20);
+    prices.push(+price.toFixed(2));
+    const baseVol = 12000 + Math.random()*4000;
+    const spike = Math.random()<0.06 ? baseVol*(1.8+Math.random()) : 0;
+    volumes.push(Math.round(baseVol+spike));
+  }
+  const now = Date.now();
+  barTimestamps = prices.map((_,i)=> now - (prices.length-1-i)*60000);
+  barHighs = prices.slice(); barLows = prices.slice();
+  zoneHistory = [];
+  tfLongData = { closes1h: [], closes4h: [], closes1d: [] };
+  render(prices, volumes);
+}
+
+function loadCsv(){
+  const raw = document.getElementById('csvBox').value.trim();
+  if(!raw) return;
+  const prices=[], volumes=[];
+  raw.split('\n').forEach(line=>{
+    const parts = line.split(',');
+    if(parts.length<2) return;
+    const p = parseFloat(parts[1]);
+    const v = parts.length>2 ? parseFloat(parts[2]) : NaN;
+    if(!isNaN(p)){ prices.push(p); volumes.push(isNaN(v)?0:v); }
+  });
+  if(prices.length<10){
+    document.getElementById('signalReason').textContent = 'Потребни се барем 10 валидни редови (Датум,Цена,Волумен).';
+    return;
+  }
+  const now = Date.now();
+  barTimestamps = prices.map((_,i)=> now - (prices.length-1-i)*60000);
+  barHighs = prices.slice(); barLows = prices.slice();
+  zoneHistory = [];
+  tfLongData = { closes1h: [], closes4h: [], closes1d: [] };
+  render(prices, volumes);
+}
+
+function sma(arr, period){
+  return arr.map((_,i)=> i<period-1 ? null : avg(arr.slice(i-period+1,i+1)));
+}
+
+function rsi(arr, period){
+  const out = new Array(arr.length).fill(null);
+  let gains=0, losses=0;
+  for(let i=1;i<arr.length;i++){
+    const diff = arr[i]-arr[i-1];
+    const gain = Math.max(diff,0), loss = Math.max(-diff,0);
+    if(i<=period){ gains+=gain; losses+=loss; if(i===period){ const rs=gains/period/((losses/period)||1e-9); out[i]=100-100/(1+rs);} }
+    else {
+      gains = (gains*(period-1)+gain)/period;
+      losses = (losses*(period-1)+loss)/period;
+      const rs = gains/(losses||1e-9);
+      out[i]=100-100/(1+rs);
+    }
+  }
+  return out;
+}
+
+function ema(arr, period){
+  const k = 2/(period+1);
+  const out = new Array(arr.length).fill(null);
+  let prev = null;
+  for(let i=0;i<arr.length;i++){
+    if(prev===null){ prev = arr[i]; out[i]=prev; }
+    else { prev = arr[i]*k + prev*(1-k); out[i]=prev; }
+  }
+  return out;
+}
+
+function macdCalc(prices){
+  const ema12 = ema(prices,12), ema26 = ema(prices,26);
+  const macdLine = prices.map((_,i)=> ema12[i]-ema26[i]);
+  const signal = ema(macdLine,9);
+  return {macdLine, signal};
+}
+
+function resample(prices, volumes, step, timestamps){
+  const closes=[], vols=[], times=[];
+  for(let i=0;i<prices.length;i+=step){
+    const chunk = prices.slice(i, i+step);
+    const vchunk = volumes.slice(i, i+step);
+    closes.push(chunk[chunk.length-1]);
+    vols.push(vchunk.reduce((a,b)=>a+b,0));
+    if(timestamps) times.push(timestamps.slice(i, i+step).slice(-1)[0]);
+  }
+  return {closes, vols, times};
+}
+
+function quickSignal(closes){
+  const n = closes.length;
+  if(n<4) return {label:'Нема податоци', cls:'hold', rsi:null};
+  const shortN = Math.max(2, Math.floor(n*0.25));
+  const longN = Math.max(shortN+1, Math.min(n, Math.floor(n*0.6)));
+  const shortAvg = avg(closes.slice(-shortN));
+  const longAvg = avg(closes.slice(-longN));
+  const rsiPeriod = Math.min(14, n-1);
+  const rsiArr = rsi(closes, rsiPeriod);
+  const lastRsi = rsiArr[rsiArr.length-1];
+  const rsiVal = (lastRsi==null || isNaN(lastRsi)) ? 50 : lastRsi;
+  let score = 0;
+  score += shortAvg>longAvg ? 1 : -1;
+  score += rsiVal>55 ? 1 : (rsiVal<45 ? -1 : 0);
+  let label='Неутрално', cls='hold';
+  if(score>=1){ label='Купува'; cls='buy'; }
+  else if(score<=-1){ label='Продава'; cls='sell'; }
+  return {label, cls, rsi: rsiVal};
+}
+
+function fmtPct(v){ return (v>=0?'+':'') + v.toFixed(2) + '%'; }
+
+function toggleAlarm(){
+  alarmEnabled = !alarmEnabled;
+  const btn = document.getElementById('alarmBtn');
+  btn.textContent = alarmEnabled ? '🔔 Аларм вклучен' : '🔕 Аларм исклучен';
+  if(alarmEnabled){
+    if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    if(audioCtx.state==='suspended') audioCtx.resume();
+    beep(760, 0.12); // short confirmation blip
+    if('Notification' in window && Notification.permission==='default') Notification.requestPermission();
+  }
+}
+
+function beep(freq, dur, delay){
+  delay = delay||0;
+  if(!audioCtx) return;
+  const t0 = audioCtx.currentTime + delay;
+  const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+  osc.type = 'sine'; osc.frequency.setValueAtTime(freq, t0);
+  gain.gain.setValueAtTime(0.0001, t0);
+  gain.gain.exponentialRampToValueAtTime(0.3, t0+0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.start(t0); osc.stop(t0+dur+0.02);
+}
+
+function fireVolumeAlarm(dir){
+  if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  if(audioCtx.state==='suspended') audioCtx.resume();
+  const vf = dir>0 ? 1000 : 320; beep(vf,0.06,0); beep(vf,0.06,0.08); beep(vf,0.06,0.16); // staccato triple blip
+  const card = document.querySelector('.mom-row');
+  if(card){ card.classList.remove('blink-orange'); void card.offsetWidth; card.classList.add('blink-orange'); setTimeout(()=>{card.classList.remove('blink-orange');}, 2200); }
+  if('Notification' in window && Notification.permission==='granted'){
+    try{ new Notification('Волумен потврда: ' + (dir>0 ? 'купување ⚡' : 'продавање ⚡'), {body:'1-мин волумен над просек, потврдено на 5-мин.'}); }catch(e){}
+  }
+}
+
+function fireCautionAlarm(){
+  if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  if(audioCtx.state==='suspended') audioCtx.resume();
+  beep(380,0.15,0); beep(380,0.15,0.22); beep(380,0.15,0.44); // slow, low, flat warning triplet
+  if('Notification' in window && Notification.permission==='granted'){
+    try{ new Notification('⚠️ Внимание — спротивен моментум', {body:'Силен волумен во спротивна насока од тековниот сигнал. Биди претпазлив.'}); }catch(e){}
+  }
+}
+
+function fireAlarm(cls, word){
+  if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  if(audioCtx.state==='suspended') audioCtx.resume();
+  if(cls==='buy'){ beep(520,0.15,0); beep(780,0.18,0.16); }        // rising two-tone
+  else if(cls==='sell'){ beep(780,0.15,0); beep(420,0.18,0.16); }   // falling two-tone
+  else { beep(600,0.2,0); beep(600,0.2,0.28); }                     // flat two-tone (no pitch change) = wait
+  const card = document.querySelector('.signal-card');
+  card.classList.remove('pulse-buy','pulse-sell','pulse-hold');
+  void card.offsetWidth;
+  card.classList.add(cls==='buy' ? 'pulse-buy' : cls==='sell' ? 'pulse-sell' : 'pulse-hold');
+  if('Notification' in window && Notification.permission==='granted'){
+    try{ new Notification('Нов сигнал: ' + word, {body: document.getElementById('signalReason').textContent}); }catch(e){}
+  }
+}
+
+// A zone is mitigated only when a later COMPLETE candle lies entirely beyond it
+// (buy zone: candle high below the zone low; sell zone: candle low above the zone high)
+function chunkExtremes(H, L, step){
+  const hi=[], lo=[], full=[];
+  for(let i=0;i<H.length;i+=step){
+    const h = H.slice(i,i+step), l = L.slice(i,i+step);
+    hi.push(Math.max(...h)); lo.push(Math.min(...l)); full.push(h.length===step);
+  }
+  return {hi, lo, full};
+}
+function isMitigated(z, hi, lo, times, full){
+  for(let i=0;i<hi.length;i++){
+    if(full && !full[i]) continue;
+    if(times && z.endTime!=null){ if(times[i] <= z.endTime) continue; }
+    else if(i <= z.endIdx) continue;
+    if(z.dir==='buy' ? hi[i] < z.low : lo[i] > z.high) return true;
+  }
+  return false;
+}
+function filterMitigated(zones, hi, lo){
+  return zones.filter(z=>{
+    for(let i=z.endIdx+1;i<hi.length;i++){
+      if(z.dir==='buy' ? hi[i] < z.low : lo[i] > z.high) return false;
+    }
+    return true;
+  });
+}
+
+function detectVolumeZones(prices, volumes, times, cap, hi, lo){
+  const n = prices.length;
+  const period = Math.max(5, Math.min(20, Math.floor(n/4)));
+  const lookahead = Math.max(3, Math.min(10, Math.floor(n/6)));
+  const spikeMult = 1.8;
+  const contThreshold = 0.25;
+  const raw = [];
+  for(let i=period; i<n-lookahead; i++){
+    const avgVol = avg(volumes.slice(i-period, i));
+    if(avgVol<=0 || volumes[i] <= avgVol*spikeMult) continue;
+    const dir = prices[i] >= prices[i-1] ? 'buy' : 'sell';
+    const change = ((prices[i+lookahead]-prices[i])/prices[i])*100;
+    const continued = dir==='buy' ? change>contThreshold : change<-contThreshold;
+    if(continued) raw.push({index:i, price:prices[i], dir, mult:volumes[i]/avgVol, change});
+  }
+  if(!raw.length) return [];
+  const clusters=[]; let cur=[raw[0]];
+  for(let i=1;i<raw.length;i++){
+    if(raw[i].dir===cur[cur.length-1].dir && raw[i].index-cur[cur.length-1].index<=3) cur.push(raw[i]);
+    else { clusters.push(cur); cur=[raw[i]]; }
+  }
+  clusters.push(cur);
+  return clusters.map(c=>{
+    const ps = c.map(z=>z.price);
+    const strongest = c.reduce((a,b)=> b.mult>a.mult ? b : a);
+    return {
+      low: Math.min(...ps), high: Math.max(...ps), dir: c[0].dir,
+      mult: avg(c.map(z=>z.mult)), change: avg(c.map(z=>z.change)),
+      startIdx: c[0].index, endIdx: c[c.length-1].index,
+      startPrice: prices[Math.max(0, c[0].index-1)],
+      peakPrice: strongest.price, peakMult: strongest.mult,
+      peakLow: lo ? lo[strongest.index] : strongest.price,
+      peakHigh: hi ? hi[strongest.index] : strongest.price,
+      startTime: times ? times[c[0].index] : null,
+      endTime: times ? times[c[c.length-1].index] : null
+    };
+  }).sort((a,b)=>b.endIdx-a.endIdx).slice(0, cap||30);
+}
+
+function render(prices, volumes){
+  lastPrices = prices; lastVolumes = volumes;
+  const sma20 = sma(prices,20), sma50 = sma(prices,50);
+  const rsiVals = rsi(prices,14);
+  const {macdLine, signal} = macdCalc(prices);
+
+  const buyPts = new Array(prices.length).fill(null);
+  const sellPts = new Array(prices.length).fill(null);
+  for(let i=1;i<prices.length;i++){
+    if(sma20[i]==null || sma50[i]==null || sma20[i-1]==null || sma50[i-1]==null) continue;
+    if(sma20[i-1]<=sma50[i-1] && sma20[i]>sma50[i]) buyPts[i]=prices[i];
+    if(sma20[i-1]>=sma50[i-1] && sma20[i]<sma50[i]) sellPts[i]=prices[i];
+  }
+
+  const lastPrice = prices[prices.length-1];
+  const prevPrice = prices[prices.length-2] ?? lastPrice;
+  const lastRsi = rsiVals[rsiVals.length-1];
+  const lastMacd = macdLine[macdLine.length-1];
+  const lastSig = signal[signal.length-1];
+
+  const idxLastBuy = buyPts.map((v,i)=>v!=null?i:-1).filter(i=>i>=0).pop();
+  const idxLastSell = sellPts.map((v,i)=>v!=null?i:-1).filter(i=>i>=0).pop();
+  const recentBuy = idxLastBuy!=null && (prices.length-idxLastBuy)<=3;
+  const recentSell = idxLastSell!=null && (prices.length-idxLastSell)<=3;
+
+  const priceEl = document.getElementById('statPrice');
+  const dirArrow = lastPrice>=prevPrice ? '▲ ' : '▼ ';
+  priceEl.textContent = dirArrow + '$' + lastPrice.toFixed(2);
+  priceEl.className = 'v ' + (lastPrice>=prevPrice ? 'buy':'sell');
+  document.getElementById('statRsi').textContent = lastRsi!=null ? lastRsi.toFixed(1) : '—';
+  document.getElementById('statMacd').textContent = (lastMacd!=null && lastSig!=null) ? (lastMacd-lastSig).toFixed(2) : '—';
+
+  // Momentum 1-min
+  const chg1 = ((lastPrice-prevPrice)/prevPrice)*100;
+  const vol1 = volumes[volumes.length-1] ?? 0;
+  const volAvg20 = avg(volumes.slice(-21,-1).length ? volumes.slice(-21,-1) : [vol1]);
+  const spike1 = vol1 > volAvg20*1.5;
+  const mom1El = document.getElementById('mom1');
+  mom1El.textContent = fmtPct(chg1);
+  mom1El.className = 'p ' + (chg1>=0?'buy':'sell');
+  const vol1El = document.getElementById('vol1');
+  vol1El.textContent = spike1 ? 'зголемен волумен ⚡' : 'нормален волумен';
+  vol1El.className = 'badge' + (spike1 ? ' spike' : '');
+
+  // Momentum 5-min
+  const p5start = prices[Math.max(0, prices.length-5)];
+  const chg5 = ((lastPrice-p5start)/p5start)*100;
+  const vol5 = volumes.slice(-5).reduce((a,b)=>a+b,0);
+  const priorWindows = [];
+  for(let i=Math.max(0, volumes.length-25); i<=volumes.length-5; i+=5){
+    priorWindows.push(volumes.slice(i, i+5).reduce((a,b)=>a+b,0));
+  }
+  const vol5Avg = priorWindows.length ? avg(priorWindows) : vol5;
+  const spike5 = vol5 > vol5Avg*1.5;
+  const mom5El = document.getElementById('mom5');
+  mom5El.textContent = fmtPct(chg5);
+  mom5El.className = 'p ' + (chg5>=0?'buy':'sell');
+  const vol5El = document.getElementById('vol5');
+  vol5El.textContent = spike5 ? 'зголемен волумен ⚡' : 'нормален волумен';
+  vol5El.className = 'badge' + (spike5 ? ' spike' : '');
+
+  // Multi-timeframe consensus: 1-min action + 5-min + 15-min trend + volume-confirmed momentum
+  const step5 = Math.max(1, Math.min(5, prices.length));
+  const step15m = Math.max(1, Math.min(15, prices.length));
+  const sig5 = quickSignal(resample(prices, volumes, step5).closes);
+  const sig15m = quickSignal(resample(prices, volumes, step15m).closes);
+
+  let vote1 = 0, vote1Label = 'неутрално';
+  if(recentBuy && lastRsi<70){ vote1=1; vote1Label='купува'; }
+  else if(recentSell && lastRsi>30){ vote1=-1; vote1Label='продава'; }
+  else if(lastRsi>70){ vote1=-1; vote1Label='продава (RSI)'; }
+  else if(lastRsi<30){ vote1=1; vote1Label='купува (RSI)'; }
+  const vote5 = sig5.cls==='buy' ? 1 : (sig5.cls==='sell' ? -1 : 0);
+  const vote15m = sig15m.cls==='buy' ? 1 : (sig15m.cls==='sell' ? -1 : 0);
+
+  // Vote 4: 1-min volume spike in the direction of the 1-min move, confirmed by continuation on 5-min
+  const dir1 = chg1>=0 ? 1 : -1;
+  const volConfirmed = spike1 && Math.sign(chg5)===dir1 && chg5!==0;
+  const voteVol = volConfirmed ? dir1 : 0;
+  const volLabel = volConfirmed ? (dir1>0 ? 'потврдено нагоре' : 'потврдено надолу') : 'нема потврда';
+
+  const totalVote = vote1 + vote5 + vote15m + voteVol;
+
+  let word='ЧЕКАЈ', cls='hold', reason='Тајм-фрејмовите не се согласуваат — сигналот е мешан.';
+  if(totalVote>=2){ word='КУПИ'; cls='buy'; reason='1-мин, 5-мин и 15-мин трендовите претежно се усогласени нагоре.'; }
+  else if(totalVote<=-2){ word='ПРОДАЈ'; cls='sell'; reason='1-мин, 5-мин и 15-мин трендовите претежно се усогласени надолу.'; }
+  document.getElementById('signalWord').textContent = word;
+  document.getElementById('signalWord').className = 'signal-word '+cls;
+  document.getElementById('signalReason').textContent = reason;
+  document.getElementById('signalBreakdown').textContent = '1мин: ' + vote1Label + '  ·  5мин: ' + sig5.label.toLowerCase() + '  ·  15мин: ' + sig15m.label.toLowerCase() + '  ·  Волумен: ' + volLabel;
+
+  // Caution: strong volume-confirmed momentum pointing opposite to the current signal
+  const conflictWarning = (cls==='buy' && voteVol===-1) || (cls==='sell' && voteVol===1);
+  const warnEl = document.getElementById('signalWarning');
+  if(conflictWarning){
+    warnEl.style.display = 'block';
+    if(!lastConflictWarning){
+      warnEl.classList.remove('blink'); void warnEl.offsetWidth; warnEl.classList.add('blink');
+      if(alarmEnabled) fireCautionAlarm();
+    }
+  } else {
+    warnEl.style.display = 'none';
+    warnEl.classList.remove('blink');
+  }
+  lastConflictWarning = conflictWarning;
+
+  // Momentum 15-min
+  const p15start = prices[Math.max(0, prices.length-15)];
+  const chg15 = ((lastPrice-p15start)/p15start)*100;
+  const vol15 = volumes.slice(-15).reduce((a,b)=>a+b,0);
+  const priorWindows15 = [];
+  for(let i=Math.max(0, volumes.length-75); i<=volumes.length-15; i+=15){
+    priorWindows15.push(volumes.slice(i, i+15).reduce((a,b)=>a+b,0));
+  }
+  const vol15Avg = priorWindows15.length ? avg(priorWindows15) : vol15;
+  const spike15 = vol15 > vol15Avg*1.5;
+  const mom15El = document.getElementById('mom15');
+  mom15El.textContent = fmtPct(chg15);
+  mom15El.className = 'p ' + (chg15>=0?'buy':'sell');
+  const vol15El = document.getElementById('vol15');
+  vol15El.textContent = spike15 ? 'зголемен волумен ⚡' : 'нормален волумен';
+  vol15El.className = 'badge' + (spike15 ? ' spike' : '');
+
+  // Alert on a fresh BUY/SELL (not on the very first render, and not on repeats of the same signal)
+  if(alarmEnabled && lastSignalCls!==null && cls!==lastSignalCls){
+    fireAlarm(cls, word);
+  }
+  lastSignalCls = cls;
+
+  // Lighter, earlier alert: fires as soon as the volume-confirmed momentum vote appears/changes direction
+  if(alarmEnabled && lastVolConfirmDir!==null && voteVol!==0 && voteVol!==lastVolConfirmDir){
+    fireVolumeAlarm(voteVol);
+  }
+  if(voteVol!==0) lastVolConfirmDir = voteVol;
+  else if(lastVolConfirmDir!==null && !volConfirmed) lastVolConfirmDir = 0;
+
+  // Timeframe table
+  const timeframes = [
+    {label:'5 мин', step:5}, {label:'15 мин', step:15}, {label:'30 мин', step:30},
+    {label:'1 час', step:60, long:'closes1h'}, {label:'4 часа', step:240, long:'closes4h'}, {label:'1 ден', step:1440, long:'closes1d'}
+  ];
+  const tbody = document.getElementById('tfBody');
+  tbody.innerHTML = '';
+  timeframes.forEach(tf=>{
+    let closes;
+    if(tf.long && tfLongData[tf.long] && tfLongData[tf.long].length>=4){
+      closes = tfLongData[tf.long];
+    } else {
+      const step = Math.max(1, Math.min(tf.step, prices.length));
+      closes = resample(prices, volumes, step).closes;
+    }
+    const sig = quickSignal(closes);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${tf.label}</td><td>${sig.rsi!=null?sig.rsi.toFixed(0):'—'}</td><td class="sig ${sig.cls}">${sig.label}</td>`;
+    tbody.appendChild(tr);
+  });
+
+  // Volume climax zones — analyzed on 15-min candles, accumulated into history
+  const zStep = Math.max(1, Math.min(15, prices.length));
+  const zTimes = (barTimestamps.length===prices.length) ? barTimestamps : null;
+  const {closes: closes15, vols: vols15, times: times15} = resample(prices, volumes, zStep, zTimes);
+  const Hs = barHighs.length===prices.length ? barHighs : prices;
+  const Ls = barLows.length===prices.length ? barLows : prices;
+  const ext = chunkExtremes(Hs, Ls, zStep);
+  const freshZones = detectVolumeZones(closes15, vols15, times15, undefined, ext.hi, ext.lo);
+  freshZones.forEach(z=>{
+    const key = (liveSymbol||'demo')+'_'+z.dir+'_'+(z.startTime||('i'+z.startIdx))+'_'+(z.endTime||('i'+z.endIdx));
+    if(!zoneHistory.some(h=>h.key===key)){
+      const label = z.endTime ? new Date(z.endTime).toLocaleTimeString('mk-MK',{timeZone:'Europe/Skopje',hour:'2-digit',minute:'2-digit'}) : ('свеќа #'+z.endIdx);
+      zoneHistory.unshift(Object.assign({}, z, {key, label, source:'live', tf:'15мин', sym: symLabels[liveSymbol]||''}));
+    }
+  });
+  if(zoneHistory.length>60) zoneHistory = zoneHistory.slice(0,60);
+
+  // Remove every zone (live / 24h / week) once price has closed through it (mitigated)
+  zoneHistory = zoneHistory.filter(z => !isMitigated(z, ext.hi, ext.lo, times15.length ? times15 : null, ext.full));
+
+  const zoneBody = document.getElementById('zoneBody');
+  if(!zoneHistory.length){
+    zoneBody.innerHTML = '<tr><td colspan="5" style="color:var(--dim)">Нема детектирано зони со овие податоци.</td></tr>';
+  } else {
+    zoneBody.innerHTML = zoneHistory.map(z=>{
+      const dirLabel = z.dir==='buy' ? 'Купување ⚡' : 'Продавање ⚡';
+      const dirCls = z.dir==='buy' ? 'buy' : 'sell';
+      const srcTag = z.source==='week' ? '📅 ' : z.source==='24h' ? '🕐 ' : z.source==='1h' ? '⏱ 1ч ' : z.source==='old' ? '⏪ '+z.tf+' ' : '🔴 ';
+      const symTag = z.sym ? z.sym+' · ' : '';
+      return `<tr><td>${srcTag}${symTag}${z.label}</td><td>$${z.low.toFixed(2)}–$${z.high.toFixed(2)}<br><span style="color:var(--dim);font-size:0.72rem;font-weight:400">старт $${z.startPrice.toFixed(2)} · најсилно $${z.peakLow.toFixed(2)}–$${z.peakHigh.toFixed(2)} (${z.peakMult.toFixed(1)}x)</span></td><td class="sig ${dirCls}">${dirLabel}</td><td>${z.mult.toFixed(1)}x</td><td class="sig ${dirCls}">${fmtPct(z.change)}</td></tr>`;
+    }).join('');
+  }
+  const zoneBuyPts = new Array(prices.length).fill(null);
+  const zoneSellPts = new Array(prices.length).fill(null);
+  freshZones.forEach(z=>{
+    const mid = Math.round((z.startIdx+z.endIdx)/2)*zStep;
+    const idx = Math.min(prices.length-1, mid);
+    if(z.dir==='buy') zoneBuyPts[idx] = prices[idx]; else zoneSellPts[idx] = prices[idx];
+  });
+
+  const dim = '#8492A6';
+  const buyColor = '#3ECF8E', sellColor = '#FF6B5F';
+
+  if(priceChart) priceChart.destroy();
+  priceChart = new Chart(document.getElementById('priceChart'), {
+    type:'line',
+    data:{ labels: prices.map((_,i)=>i+1), datasets:[
+      {label:'Цена', data:prices, borderColor:'#EAF0F7', borderWidth:1.5, pointRadius:0, tension:0.15},
+      {label:'SMA20', data:sma20, borderColor:'#5B8DEF', borderWidth:1.5, pointRadius:0, tension:0.15},
+      {label:'SMA50', data:sma50, borderColor:'#E8B75E', borderWidth:1.5, pointRadius:0, tension:0.15},
+      {label:'Купи', data:buyPts, borderColor:buyColor, backgroundColor:buyColor, pointRadius:6, showLine:false},
+      {label:'Продај', data:sellPts, borderColor:sellColor, backgroundColor:sellColor, pointRadius:6, showLine:false},
+      {label:'Зона купување', data:zoneBuyPts, borderColor:buyColor, backgroundColor:buyColor, pointStyle:'rectRot', pointRadius:9, pointBorderColor:'#EAF0F7', pointBorderWidth:1.5, showLine:false},
+      {label:'Зона продавање', data:zoneSellPts, borderColor:sellColor, backgroundColor:sellColor, pointStyle:'rectRot', pointRadius:9, pointBorderColor:'#EAF0F7', pointBorderWidth:1.5, showLine:false},
+    ]},
+    options:{
+      responsive:true,
+      plugins:{legend:{labels:{color:dim, font:{size:10}}}},
+      scales:{
+        x:{ticks:{color:dim, maxTicksLimit:8}, grid:{color:'#1C2536'}},
+        y:{ticks:{color:dim}, grid:{color:'#1C2536'}}
+      }
+    }
+  });
+
+  if(rsiChart) rsiChart.destroy();
+  rsiChart = new Chart(document.getElementById('rsiChart'), {
+    type:'line',
+    data:{ labels: prices.map((_,i)=>i+1), datasets:[
+      {label:'RSI', data:rsiVals, borderColor:'#E8B75E', borderWidth:1.5, pointRadius:0, tension:0.15}
+    ]},
+    options:{
+      responsive:true,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{ticks:{color:dim, maxTicksLimit:8}, grid:{color:'#1C2536'}},
+        y:{min:0, max:100, ticks:{color:dim}, grid:{color:'#1C2536'}}
+      }
+    }
+  });
+}
+
+let liveInterval = null;
+let longInterval = null;
+let liveSymbol = null;
+const symLabels = { BTCUSDT:'BTC/USDT', ETHUSDT:'ETH/USDT' };
+const symBtnIds = { BTCUSDT:'liveBtnBTC', ETHUSDT:'liveBtnETH' };
+
+async function fetchReal(symbol){
+  const status = document.getElementById('liveStatus');
+  try{
+    const res = await fetch('https://api.binance.com/api/v3/klines?symbol='+symbol+'&interval=1m&limit=600');
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+    const prices = off(data.map(k=>parseFloat(k[4])));
+    const volumes = data.map(k=>parseFloat(k[5]));
+    barTimestamps = data.map(k=>k[6]);
+    barHighs = off(data.map(k=>parseFloat(k[2]))); barLows = off(data.map(k=>parseFloat(k[3])));
+    render(prices, volumes);
+    status.textContent = 'Живо: ' + symLabels[symbol] + ' — ажурирано во ' + new Date().toLocaleTimeString('mk-MK',{timeZone:'Europe/Skopje'});
+  }catch(e){
+    status.textContent = 'Не успеа поврзувањето. Ова работи само кога страницата е отворена локално или self-hosted — не во преглед внатре во claude.ai.';
+  }
+}
+
+function resetLiveButtons(){
+  Object.values(symBtnIds).forEach(id=>{
+    document.getElementById(id).textContent = '🔴 Live ' + document.getElementById(id).dataset.label;
+  });
+}
+
+async function scan24h(symbol){
+  const status = document.getElementById('liveStatus');
+  status.style.display = 'block';
+  try{
+    const res = await fetch('https://api.binance.com/api/v3/klines?symbol='+symbol+'&interval=15m&limit=96');
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data = (await res.json()).filter(k=>k[6]<=Date.now());
+    const closes = off(data.map(k=>parseFloat(k[4])));
+    const vols = data.map(k=>parseFloat(k[5]));
+    const times = data.map(k=>k[6]);
+    const hi = off(data.map(k=>parseFloat(k[2]))), lo = off(data.map(k=>parseFloat(k[3])));
+    const zonesAll = detectVolumeZones(closes, vols, times, undefined, hi, lo);
+    const zones = filterMitigated(zonesAll, hi, lo);
+    zones.forEach(z=>{
+      const key = symbol+'_'+z.dir+'_'+z.startTime+'_'+z.endTime;
+      if(!zoneHistory.some(h=>h.key===key)){
+        const label = new Date(z.endTime).toLocaleString('mk-MK',{timeZone:'Europe/Skopje',hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'});
+        zoneHistory.unshift(Object.assign({}, z, {key, label, source:'24h', tf:'15мин', sym: symLabels[symbol]}));
+      }
+    });
+    if(lastPrices.length) render(lastPrices, lastVolumes);
+    status.textContent = 'Скенирани последни 24 часа (' + symLabels[symbol] + ') — најдени ' + zonesAll.length + ' зони, активни (немитигирани): ' + zones.length + '.';
+  }catch(e){
+    status.textContent = '24ч скенирање не успеа. Ова работи само локално/self-hosted, не во преглед внатре во claude.ai.';
+  }
+}
+
+async function ensureZoneForTimeframe(symbol, interval, tfLabel){
+  const need = d => !zoneHistory.some(z => z.dir===d && z.tf===tfLabel && z.sym===symLabels[symbol]);
+  if(!need('buy') && !need('sell')) return;
+  const base = 'https://api.binance.com/api/v3/klines?symbol='+symbol;
+  let all = [];
+  let endTime = Date.now();
+  for(let page=0; page<18; page++){
+    const res = await fetch(base+'&interval='+interval+'&limit=1000&endTime='+endTime);
+    if(!res.ok) break;
+    const chunk = (await res.json()).filter(k=>k[6]<=Date.now());
+    if(!chunk.length) break;
+    all = chunk.concat(all);
+    endTime = chunk[0][0]-1;
+    const cl = off(all.map(k=>parseFloat(k[4]))), vo = all.map(k=>parseFloat(k[5])), ti = all.map(k=>k[6]);
+    const hi = off(all.map(k=>parseFloat(k[2]))), lo = off(all.map(k=>parseFloat(k[3])));
+    const active = filterMitigated(detectVolumeZones(cl, vo, ti, Infinity, hi, lo), hi, lo);
+    ['buy','sell'].forEach(d=>{
+      if(!need(d)) return;
+      const z = active.filter(x=>x.dir===d).sort((a,b)=>b.endIdx-a.endIdx)[0];
+      if(!z) return;
+      const key = symbol+'_old'+interval+'_'+z.dir+'_'+z.startTime+'_'+z.endTime;
+      if(zoneHistory.some(h=>h.key===key)) return;
+      const label = new Date(z.endTime).toLocaleString('mk-MK',{timeZone:'Europe/Skopje',hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit',year:'2-digit'});
+      zoneHistory.unshift(Object.assign({}, z, {key, label, source:'old', tf:tfLabel, sym: symLabels[symbol]}));
+    });
+    if(!need('buy') && !need('sell')) break;
+  }
+  if(lastPrices.length) render(lastPrices, lastVolumes);
+}
+
+async function ensureBothDirections(symbol){
+  await ensureZoneForTimeframe(symbol, '15m', '15мин');
+  await ensureZoneForTimeframe(symbol, '1h', '1ч');
+}
+
+async function fetchLongTimeframes(symbol){
+  try{
+    const base = 'https://api.binance.com/api/v3/klines?symbol='+symbol;
+    const [r1h, r4h, r1d] = await Promise.all([
+      fetch(base+'&interval=1h&limit=336'),
+      fetch(base+'&interval=4h&limit=120'),
+      fetch(base+'&interval=1d&limit=60')
+    ]);
+    const d1h = (await r1h.json()).filter(k=>k[6]<=Date.now()), d4h = await r4h.json(), d1d = await r1d.json();
+    tfLongData.closes1h = off(d1h.slice(-168).map(k=>parseFloat(k[4])));
+    // 1-hour volume zones: high volume + continuation, minus already mitigated ones
+    const c1h = off(d1h.map(k=>parseFloat(k[4])));
+    const v1h = d1h.map(k=>parseFloat(k[5])), t1h = d1h.map(k=>k[6]);
+    const h1h = off(d1h.map(k=>parseFloat(k[2]))), l1h = off(d1h.map(k=>parseFloat(k[3])));
+    const z1 = filterMitigated(detectVolumeZones(c1h, v1h, t1h, undefined, h1h, l1h), h1h, l1h);
+    const keyOf = z => symbol+'_1h_'+z.dir+'_'+z.startTime+'_'+z.endTime;
+    // drop 1h zones that are no longer active (price broke through them)
+    zoneHistory = zoneHistory.filter(h => h.source!=='1h' || z1.some(z=>keyOf(z)===h.key));
+    z1.forEach(z=>{
+      const key = symbol+'_1h_'+z.dir+'_'+z.startTime+'_'+z.endTime;
+      if(!zoneHistory.some(h=>h.key===key)){
+        const label = new Date(z.endTime).toLocaleString('mk-MK',{timeZone:'Europe/Skopje',hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'});
+        zoneHistory.unshift(Object.assign({}, z, {key, label, source:'1h', tf:'1ч', sym: symLabels[symbol]}));
+      }
+    });
+    tfLongData.closes4h = off(d4h.map(k=>parseFloat(k[4])));
+    tfLongData.closes1d = off(d1d.map(k=>parseFloat(k[4])));
+    if(lastPrices.length) render(lastPrices, lastVolumes);
+    await ensureBothDirections(symbol);
+  }catch(e){ /* table falls back to short-window resample */ }
+}
+
+function skTz(ts){
+  // offset (ms) of Europe/Skopje vs UTC at instant ts (handles CET/CEST)
+  const parts = new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Skopje',hourCycle:'h23',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'}).formatToParts(new Date(ts));
+  const p = {}; parts.forEach(x=>{ if(x.type!=='literal') p[x.type]=+x.value; });
+  return Date.UTC(p.year,p.month-1,p.day,p.hour,p.minute,p.second) - Math.floor(ts/1000)*1000;
+}
+function skMidnight(y,m,d){
+  // UTC ms of 00:00 Skopje time on the given calendar date (month 0-based, overflow allowed)
+  const g = Date.UTC(y,m,d);
+  let t = g - skTz(g);
+  t = g - skTz(t);
+  return t;
+}
+function getPrevWeekRange(){
+  // Mon 00:00 - Fri 23:59:59.999 in Skopje time, of the most recently completed working week
+  const now = Date.now();
+  const s = new Date(now + skTz(now));            // UTC fields = Skopje wall clock
+  const day = s.getUTCDay();                       // 0=Sun..6=Sat in Skopje
+  const y = s.getUTCFullYear(), m = s.getUTCMonth(), d = s.getUTCDate();
+  const back = (day+6)%7 + ((day===0 || day===6) ? 0 : 7);
+  return {start: skMidnight(y,m,d-back), end: skMidnight(y,m,d-back+5) - 1};
+}
+
+async function scanPrevWeek(symbol){
+  const status = document.getElementById('liveStatus');
+  status.style.display = 'block';
+  try{
+    const {start, end} = getPrevWeekRange();
+    const res = await fetch('https://api.binance.com/api/v3/klines?symbol='+symbol+'&interval=1h&startTime='+start+'&limit=1000');
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data = (await res.json()).filter(k=>k[6]<=Date.now());
+    const weekLen = data.filter(k=>k[6]<=end).length;
+    if(!weekLen){ status.textContent = 'Нема податоци за минатата седмица.'; return; }
+    const closes = off(data.map(k=>parseFloat(k[4])));
+    const vols = data.map(k=>parseFloat(k[5]));
+    const times = data.map(k=>k[6]);
+    const hi = off(data.map(k=>parseFloat(k[2]))), lo = off(data.map(k=>parseFloat(k[3])));
+    const zonesAll = detectVolumeZones(closes.slice(0,weekLen), vols.slice(0,weekLen), times.slice(0,weekLen), undefined, hi.slice(0,weekLen), lo.slice(0,weekLen));
+    const zones = filterMitigated(zonesAll, hi, lo);
+    zones.forEach(z=>{
+      const key = symbol+'_'+z.dir+'_'+z.startTime+'_'+z.endTime;
+      if(!zoneHistory.some(h=>h.key===key)){
+        const label = new Date(z.endTime).toLocaleString('mk-MK',{timeZone:'Europe/Skopje',hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'});
+        zoneHistory.unshift(Object.assign({}, z, {key, label, source:'week', tf:'1ч', sym: symLabels[symbol]}));
+      }
+    });
+    if(lastPrices.length) render(lastPrices, lastVolumes);
+    status.textContent = 'Минатата седмица (пон–пет, 1ч, ' + symLabels[symbol] + ') — најдени ' + zonesAll.length + ' зони, активни (немитигирани): ' + zones.length + '.';
+  }catch(e){
+    status.textContent = 'Скенирањето не успеа. Работи само локално/self-hosted.';
+  }
+}
+
+function toggleLive(symbol){
+  const status = document.getElementById('liveStatus');
+  status.style.display = 'block';
+
+  if(liveInterval && liveSymbol === symbol){
+    clearInterval(liveInterval); clearInterval(longInterval);
+    liveInterval = null; longInterval = null; liveSymbol = null;
+    resetLiveButtons();
+    status.textContent = 'Запрено.';
+    return;
+  }
+  if(liveInterval) clearInterval(liveInterval);
+  if(longInterval) clearInterval(longInterval);
+  resetLiveButtons();
+  zoneHistory = [];
+  tfLongData = { closes1h: [], closes4h: [], closes1d: [] };
+  liveSymbol = symbol;
+  document.getElementById(symBtnIds[symbol]).textContent = '⏸ Стоп ' + symLabels[symbol];
+  fetchReal(symbol);
+  scan24h(symbol);
+  fetchLongTimeframes(symbol);
+  liveInterval = setInterval(()=>fetchReal(symbol), 15000);
+  longInterval = setInterval(()=>fetchLongTimeframes(symbol), 600000);
+}
+
+document.getElementById('liveBtnBTC').dataset.label = 'BTC/USDT';
+document.getElementById('liveBtnETH').dataset.label = 'ETH/USDT';
+
+loadDemo();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
