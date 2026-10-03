@@ -1,0 +1,2 @@
+# crypto
+aplikacija za trejdanje
